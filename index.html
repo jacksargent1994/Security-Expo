@@ -8,11 +8,12 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet"/>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Barlow','Segoe UI',sans-serif;background:#ffffff}
+    body{font-family:'Barlow','Segoe UI',sans-serif;background:#fffff}
     select option{background:#ffffff}
     ::-webkit-scrollbar{width:5px;height:5px}
     ::-webkit-scrollbar-track{background:#f0f4f9}
@@ -44,7 +45,9 @@ const DAYS = [
   { label:'Day Three', date:'Friday 29 Aug',    iso:'2026-08-29' },
 ];
 const PODS = [
-  'SYXC Tech Centre','SYXC CBR','SYXC Pod 1','SYXC Pod 2',];
+  'SYXC Tech Centre',
+  'SYXC CBR','SYXC Pod 1','SYXC Pod 2',
+];
 const TIME_SLOTS = ['0930-1020','1030-1120','1130-1220','1230-1320','1330-1420','1430-1520','1530-1620','1630-1730'];
 const LUNCH_SLOT = '1230-1320';
 
@@ -101,6 +104,50 @@ function dlICS(b) {
   a.click();
 }
 function dlAllICS(list) { list.filter(b=>b.organisation).forEach((b,i)=>setTimeout(()=>dlICS(b),i*150)); }
+
+function exportExcel(bookings) {
+  // Sort by day then pod then time
+  const dayOrder = {'Day One':0,'Day Two':1,'Day Three':2};
+  const sorted = [...bookings]
+    .filter(b => b.organisation)
+    .sort((a,b) => (dayOrder[a.day]||0)-(dayOrder[b.day]||0) || a.pod.localeCompare(b.pod) || a.time.localeCompare(b.time));
+
+  const rows = sorted.map(b => ({
+    'Day':              b.day,
+    'Date':             b.day === 'Day One' ? 'Wed 27 Aug' : b.day === 'Day Two' ? 'Thu 28 Aug' : 'Fri 29 Aug',
+    'Time':             b.time,
+    'Pod':              b.pod,
+    'Staff':            b.staff,
+    'Organisation':     b.organisation,
+    'Representatives':  b.representatives || '',
+    'Challenge':        b.challenge || '',
+    'Solution':         b.solution || '',
+    'Technology':       b.technology || '',
+    'CRM Link':         b.crm_link || '',
+    'Calendar Invite':  b.calendar_invite ? 'Yes' : 'No',
+  }));
+
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1 — All bookings
+  const wsAll = XLSX.utils.json_to_sheet(rows);
+  wsAll['!cols'] = [
+    {wch:10},{wch:12},{wch:12},{wch:20},{wch:25},{wch:28},
+    {wch:28},{wch:35},{wch:25},{wch:30},{wch:25},{wch:16},
+  ];
+  XLSX.utils.book_append_sheet(wb, wsAll, 'All Bookings');
+
+  // Sheet per day
+  ['Day One','Day Two','Day Three'].forEach(day => {
+    const dayRows = rows.filter(r => r['Day'] === day);
+    if (!dayRows.length) return;
+    const ws = XLSX.utils.json_to_sheet(dayRows);
+    ws['!cols'] = [{wch:10},{wch:12},{wch:12},{wch:20},{wch:25},{wch:28},{wch:28},{wch:35},{wch:25},{wch:30},{wch:25},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, ws, day);
+  });
+
+  XLSX.writeFile(wb, 'SYXC_Security_Expo_2026_Bookings.xlsx');
+}
 
 // ─── MODAL ───────────────────────────────────────────────────────────────────
 function Modal({init, onClose, onSave, onDelete, bookings}) {
@@ -312,6 +359,10 @@ function App() {
               ⬇ All .ics
             </button>
           )}
+          <button onClick={()=>exportExcel(bookings)}
+            style={{...btnB,background:'rgba(255,255,255,0.15)',color:'#fff',border:'1px solid rgba(255,255,255,0.3)'}}>
+            ⬇ Excel
+          </button>
           <button onClick={()=>setModal({...BLANK,pod:activePod,day:activeDay})}
             style={{...btnB,background:'#fff',color:'#005197',fontWeight:700}}>
             + New Booking
