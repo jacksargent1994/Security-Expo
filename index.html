@@ -241,19 +241,24 @@ function App() {
   const fire = (msg, color=C.green) => { setToast({msg,color}); setTimeout(()=>setToast(null),2800); };
 
   // Load + realtime
-  React.useEffect(() => {
+React.useEffect(() => {
     async function load() {
-      setLoading(true);
       const {data,error} = await sb.from('bookings').select('*').order('created_at',{ascending:true});
       if (error) { console.error(error); setDbError(true); }
-      else setBookings(data||[]);
+      else { setBookings(data||[]); setDbError(false); }
       setLoading(false);
     }
     load();
+
+    // Real-time subscription
     const ch = sb.channel('bookings-live')
       .on('postgres_changes',{event:'*',schema:'public',table:'bookings'},()=>load())
       .subscribe();
-    return ()=>sb.removeChannel(ch);
+
+    // Polling fallback every 10 seconds in case real-time drops
+    const poll = setInterval(load, 10000);
+
+    return ()=>{ sb.removeChannel(ch); clearInterval(poll); };
   }, []);
 
   const save = React.useCallback(async (f) => {
