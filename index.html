@@ -39,20 +39,22 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 const SHOW_NAME = 'Security Expo 2026';
 const DAYS = [{
   label: 'Day One',
-  date: 'Wednesday 27 Aug',
-  iso: '2026-08-27'
+  date: 'Tuesday 2 Sep',
+  iso: '2026-09-02'
 }, {
   label: 'Day Two',
-  date: 'Thursday 28 Aug',
-  iso: '2026-08-28'
+  date: 'Wednesday 3 Sep',
+  iso: '2026-09-03'
 }, {
   label: 'Day Three',
-  date: 'Friday 29 Aug',
-  iso: '2026-08-29'
+  date: 'Thursday 4 Sep',
+  iso: '2026-09-04'
 }];
 const PODS = ['SYXC Tech Centre', 'SYXC CBR', 'SYXC Pod 1', 'SYXC Pod 2'];
 const TIME_SLOTS = ['0930-1020', '1030-1120', '1130-1220', '1230-1320', '1330-1420', '1430-1520', '1530-1620', '1630-1730'];
 const LUNCH_SLOT = '1230-1320';
+const STAFF_LIST = ["Aditya Raja", "Angus Henderson", "Brad Ferguson", "Cameron Watton", "Corey Simons", "Dale Simons", "DJ Setiawan", "Donald Mani", "George Moawad", "Greg Barker", "Jack Sargent", "James Gilbert", "Jayshil Parmar", "Jean Jaojoco", "Jordan Spiteri", "Lee Shelford", "Luke Simon", "Michael Hodgkins", "Paul Felton", "Rick White", "Rob Clarke", "Roger Shi", "Tarique Weerasekera", "Troy Grenfell", "Will Glasson", "Zane Engstrom"];
+
 
 // ─── COLOURS ─────────────────────────────────────────────────────────────────
 const C = {
@@ -145,7 +147,7 @@ function exportExcel(bookings) {
   const sorted = [...bookings].filter(b => b.organisation).sort((a, b) => (dayOrder[a.day] || 0) - (dayOrder[b.day] || 0) || a.pod.localeCompare(b.pod) || a.time.localeCompare(b.time));
   const rows = sorted.map(b => ({
     'Day': b.day,
-    'Date': b.day === 'Day One' ? 'Wed 27 Aug' : b.day === 'Day Two' ? 'Thu 28 Aug' : 'Fri 29 Aug',
+    'Date': b.day === 'Day One' ? 'Tue 2 Sep' : b.day === 'Day Two' ? 'Wed 3 Sep' : 'Thu 4 Sep',
     'Time': b.time,
     'Pod': b.pod,
     'Staff': b.staff,
@@ -289,7 +291,56 @@ function Modal({
       color: C.text,
       fontWeight: 700
     }
-  }, f.id ? 'Edit Booking' : 'New Booking'), clash && /*#__PURE__*/React.createElement("div", {
+  }, f.id ? 'Edit Booking' : 'New Booking'), /*#__PURE__*/React.createElement("div", {
+    style: {gridColumn:'span 2', display:'flex', flexDirection:'column', gap:5, marginTop:4}
+  },
+  /*#__PURE__*/React.createElement("label", {
+    style: {fontSize:11, color:C.muted, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em'}
+  }, "Staff Assigned"),
+  /*#__PURE__*/React.createElement("div", {
+    style: {display:'flex', flexWrap:'wrap', gap:6, padding:'10px', background:C.surface,
+      border:`1px solid ${errs.staff ? C.red : C.border2}`, borderRadius:6}
+  },
+    STAFF_LIST.map(function(name) {
+      const parts = f.staff.split(/[\/,+&]/).map(function(s){return s.trim();}).filter(Boolean);
+      const selected = parts.includes(name);
+      // Check if this staff member is already booked at this time in ANY other pod
+      const busyBooking = bookings.find(function(b) {
+        if (b.day !== f.day || b.time !== f.time) return false;
+        if (b.id === f.id) return false; // ignore current booking being edited
+        const assignedStaff = b.staff.split(/[\/,+&]/).map(function(s){return s.trim();}).filter(Boolean);
+        return assignedStaff.includes(name);
+      });
+      const busy = !!busyBooking && !selected;
+      return /*#__PURE__*/React.createElement("button", {
+        key: name,
+        type: "button",
+        disabled: busy,
+        title: busy ? `${name} is already booked at ${f.time} (${busyBooking.pod} — ${busyBooking.organisation})` : name,
+        onClick: function() {
+          if (busy) return;
+          const current = f.staff.split(/[\/,+&]/).map(function(s){return s.trim();}).filter(Boolean);
+          const updated = selected ? current.filter(function(s){return s!==name;}) : [...current, name];
+          set("staff", updated.join(" / "));
+        },
+        style: {
+          padding:'4px 10px', borderRadius:5, fontSize:12,
+          cursor: busy ? 'not-allowed' : 'pointer',
+          fontFamily:'inherit', fontWeight: selected ? 600 : 400,
+          background: busy ? '#f0f4f9' : selected ? C.accent : '#fff',
+          color: busy ? '#b8cee0' : selected ? '#fff' : C.muted,
+          border: `1px solid ${busy ? '#d0dce8' : selected ? C.accent : C.border2}`,
+          transition:'all .15s',
+          marginBottom:2,
+          opacity: busy ? 0.6 : 1,
+          textDecoration: busy ? 'line-through' : 'none',
+        }
+      }, name);
+    })
+  ),
+  errs.staff && /*#__PURE__*/React.createElement("span", {style:{color:C.red,fontSize:11}}, errs.staff)
+),
+clash && /*#__PURE__*/React.createElement("div", {
     style: {
       background: '#fff3cd',
       border: '1px solid #ffc107',
